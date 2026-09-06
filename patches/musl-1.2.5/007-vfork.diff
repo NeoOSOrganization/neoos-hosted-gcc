@@ -1,0 +1,22 @@
+--- a/src/process/x86_64/vfork.s	2026-09-05 17:51:17.111756191 +0330
++++ b/src/process/x86_64/vfork.s	2026-09-07 01:44:47.242328170 +0330
+@@ -1,8 +1,18 @@
++// NeoOS's replacement for musl's src/process/x86_64/vfork.s.
++//
++// vfork pops its return address before the syscall and pushes it
++// after, so it cannot go through the funnel either. NeoOS's fork is
++// 12; Linux's is 58.
++//
++// DIVERGENCE: this is a real fork, not a vfork -- NeoOS has no vfork,
++// and fork is the safe direction to diverge in (vfork's contract is a
++// subset). Recorded in docs/stdlib.md.
++
+ .global vfork
+ .type vfork,@function
+ vfork:
+ 	pop %rdx
+-	mov $58,%eax
++	mov $12,%eax
+ 	syscall
+ 	push %rdx
+ 	mov %rax,%rdi

@@ -1,0 +1,26 @@
+--- a/src/thread/x86_64/__unmapself.s	2026-09-05 17:51:17.107187674 +0330
++++ b/src/thread/x86_64/__unmapself.s	2026-09-07 01:44:47.238933625 +0330
+@@ -1,10 +1,17 @@
+-/* Copyright 2011-2012 Nicholas J. Kain, licensed under standard MIT license */
++// NeoOS's replacement for musl's src/thread/x86_64/__unmapself.s.
++//
++// Like the signal restorer, this cannot touch the stack -- it is in
++// the middle of unmapping the very stack it runs on -- so the numbers
++// are translated inline instead of going through the funnel.
++//
++// NeoOS: munmap is 38, exit is 0. Linux: 11 and 60.
++
+ .text
+ .global __unmapself
+ .type   __unmapself,@function
+ __unmapself:
+-	movl $11,%eax   /* SYS_munmap */
+-	syscall         /* munmap(arg2,arg3) */
+-	xor %rdi,%rdi   /* exit() args: always return success */
+-	movl $60,%eax   /* SYS_exit */
+-	syscall         /* exit(0) */
++	movl $38,%eax   /* NeoOS munmap(arg2, arg3) */
++	syscall
++	xor %rdi,%rdi   /* always report success */
++	movl $0,%eax    /* NeoOS exit */
++	syscall
