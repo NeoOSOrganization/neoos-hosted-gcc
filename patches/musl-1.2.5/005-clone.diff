@@ -1,25 +1,25 @@
---- a/src/thread/x86_64/clone.s	2026-09-07 01:44:47.239774503 +0330
-+++ b/src/thread/x86_64/clone.s	2026-09-07 01:44:47.240518711 +0330
+--- a/src/thread/x86_64/clone.s	2026-09-07 02:54:47.525911844 +0330
++++ b/src/thread/x86_64/clone.s	2026-09-07 02:54:47.532483404 +0330
 @@ -1,10 +1,30 @@
-+// NeoOS's clone.s. Was a deliberate -ENOSYS stub (see git history) --
-+// upstream's raw assembly is otherwise EXACTLY what NeoOS needs, since
-+// it already builds the raw Linux clone(2) register convention
-+// (rdi=flags, rsi=stack, rdx=ptid, r10=ctid, r8=tls) that NeoOS's own
-+// native syscall convention uses too (see kernel/sched/thread.c's
-+// clone_task and kernel/syscall/sys_proc.c's sys_clone). The ONLY two
-+// things that differ from upstream are the syscall NUMBERS, both of
-+// which collide with unrelated NeoOS syscalls under Linux's numbering:
-+//   - clone itself: Linux 56 is NeoOS's lstat. Use SYS_CLONE (92).
-+//   - the child's post-return exit call: Linux exit(2)=60 is NeoOS's
-+//     SYS_EXIT_GROUP (60) -- which would kill the WHOLE PROCESS, not
-+//     just this thread, the moment any pthread's start function
-+//     returned normally. Use SYS_THREAD_EXIT (18) instead, which is
-+//     what actually ends one thread on NeoOS. %edi already holds the
-+//     start function's return value at this point (mov %eax,%edi,
-+//     below), which is exactly SYS_THREAD_EXIT's one argument.
-+//
-+// See docs/superpowers/specs/2026-09-07-clone-pthread-design.md and
-+// docs/superpowers/plans/2026-09-07-clone-pthread.md.
++# NeoOS's clone.s. Was a deliberate -ENOSYS stub (see git history) --
++# upstream's raw assembly is otherwise EXACTLY what NeoOS needs, since
++# it already builds the raw Linux clone(2) register convention
++# (rdi=flags, rsi=stack, rdx=ptid, r10=ctid, r8=tls) that NeoOS's own
++# native syscall convention uses too (see kernel/sched/thread.c's
++# clone_task and kernel/syscall/sys_proc.c's sys_clone). The ONLY two
++# things that differ from upstream are the syscall NUMBERS, both of
++# which collide with unrelated NeoOS syscalls under Linux's numbering:
++#   - clone itself: Linux 56 is NeoOS's lstat. Use SYS_CLONE (92).
++#   - the child's post-return exit call: Linux exit(2)=60 is NeoOS's
++#     SYS_EXIT_GROUP (60) -- which would kill the WHOLE PROCESS, not
++#     just this thread, the moment any pthread's start function
++#     returned normally. Use SYS_THREAD_EXIT (18) instead, which is
++#     what actually ends one thread on NeoOS. %edi already holds the
++#     start function's return value at this point (mov %eax,%edi,
++#     below), which is exactly SYS_THREAD_EXIT's one argument.
++#
++# See docs/superpowers/specs/2026-09-07-clone-pthread-design.md and
++# docs/superpowers/plans/2026-09-07-clone-pthread.md.
 +
  .text
  .global __clone

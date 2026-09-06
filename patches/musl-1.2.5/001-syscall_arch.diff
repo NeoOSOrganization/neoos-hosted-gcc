@@ -1,5 +1,5 @@
---- a/arch/x86_64/syscall_arch.h	2026-09-05 17:51:17.102627447 +0330
-+++ b/arch/x86_64/syscall_arch.h	2026-09-07 01:44:47.236004948 +0330
+--- a/arch/x86_64/syscall_arch.h	2026-09-07 02:54:47.522112989 +0330
++++ b/arch/x86_64/syscall_arch.h	2026-09-07 02:54:47.528772181 +0330
 @@ -1,64 +1,53 @@
 +// NeoOS's replacement for musl's arch/x86_64/syscall_arch.h.
 +//

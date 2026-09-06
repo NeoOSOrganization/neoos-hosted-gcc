@@ -1,26 +1,26 @@
---- a/src/thread/x86_64/syscall_cp.s	2026-09-05 17:51:17.104205184 +0330
-+++ b/src/thread/x86_64/syscall_cp.s	2026-09-07 01:44:47.237068218 +0330
+--- a/src/thread/x86_64/syscall_cp.s	2026-09-07 02:54:47.523168194 +0330
++++ b/src/thread/x86_64/syscall_cp.s	2026-09-07 02:54:47.529700870 +0330
 @@ -1,3 +1,24 @@
-+// NeoOS's replacement for musl's src/thread/x86_64/syscall_cp.s.
-+//
-+// WHY THIS FILE EXISTS: upstream's version issues `syscall` DIRECTLY
-+// with Linux's number in %rax, which walks straight past the shim in
-+// syscall_arch.h. Every cancellable call -- read, write, open, close,
-+// readv, writev, nanosleep, wait4 -- goes through here, so with the
-+// upstream file a musl program could exit (exit_group is not a
-+// cancellation point, so it took the C path and was translated) but
-+// could not print a single byte. That is exactly how it presented: a
-+// process that ran to completion, returned 0, and produced no output.
-+//
-+// So the cancel check stays, and the syscall itself is handed to
-+// __neoos_syscall like every other one.
-+//
-+// DIVERGENCE: __cp_begin/__cp_end no longer bracket the `syscall`
-+// instruction itself -- it now lives inside __neoos_syscall -- so the
-+// "was the thread interrupted inside a cancellable syscall" test that
-+// pthread cancellation depends on is no longer exact. Nothing uses
-+// musl's pthreads on NeoOS yet. When something does, this is the file
-+// that has to be revisited.
++# NeoOS's replacement for musl's src/thread/x86_64/syscall_cp.s.
++#
++# WHY THIS FILE EXISTS: upstream's version issues `syscall` DIRECTLY
++# with Linux's number in %rax, which walks straight past the shim in
++# syscall_arch.h. Every cancellable call -- read, write, open, close,
++# readv, writev, nanosleep, wait4 -- goes through here, so with the
++# upstream file a musl program could exit (exit_group is not a
++# cancellation point, so it took the C path and was translated) but
++# could not print a single byte. That is exactly how it presented: a
++# process that ran to completion, returned 0, and produced no output.
++#
++# So the cancel check stays, and the syscall itself is handed to
++# __neoos_syscall like every other one.
++#
++# DIVERGENCE: __cp_begin/__cp_end no longer bracket the `syscall`
++# instruction itself -- it now lives inside __neoos_syscall -- so the
++# "was the thread interrupted inside a cancellable syscall" test that
++# pthread cancellation depends on is no longer exact. Nothing uses
++# musl's pthreads on NeoOS yet. When something does, this is the file
++# that has to be revisited.
 +
  .text
  .global __cp_begin
@@ -29,8 +29,8 @@
  __syscall_cp_asm:
  
  __cp_begin:
-+	// rdi = &self->cancel, rsi = nr, rdx = a1, rcx = a2,
-+	// r8 = a3, r9 = a4, 8(%rsp) = a5, 16(%rsp) = a6
++	# rdi = &self->cancel, rsi = nr, rdx = a1, rcx = a2,
++	# r8 = a3, r9 = a4, 8(%rsp) = a5, 16(%rsp) = a6
  	mov (%rdi),%eax
  	test %eax,%eax
  	jnz __cp_cancel
@@ -47,20 +47,20 @@
 +
 +	push %rbp
 +	mov %rsp,%rbp
-+	// 16(%rbp) = a5, 24(%rbp) = a6
++	# 16(%rbp) = a5, 24(%rbp) = a6
 +
-+	// Shuffle into __neoos_syscall(nr, a1, a2, a3, a4, a5, a6).
-+	// Left to right is safe: each register's old value has already
-+	// been copied out by the time it is overwritten.
-+	mov %rsi,%rdi          // nr
-+	mov %rdx,%rsi          // a1
-+	mov %rcx,%rdx          // a2
-+	mov %r8,%rcx           // a3
-+	mov %r9,%r8            // a4
-+	mov 16(%rbp),%r9       // a5
++	# Shuffle into __neoos_syscall(nr, a1, a2, a3, a4, a5, a6).
++	# Left to right is safe: each register's old value has already
++	# been copied out by the time it is overwritten.
++	mov %rsi,%rdi          # nr
++	mov %rdx,%rsi          # a1
++	mov %rcx,%rdx          # a2
++	mov %r8,%rcx           # a3
++	mov %r9,%r8            # a4
++	mov 16(%rbp),%r9       # a5
 +
-+	// a6 is the seventh argument and travels on the stack. The extra
-+	// 8 bytes keep %rsp 16-byte aligned at the call, as SysV requires.
++	# a6 is the seventh argument and travels on the stack. The extra
++	# 8 bytes keep %rsp 16-byte aligned at the call, as SysV requires.
 +	sub $16,%rsp
 +	mov 24(%rbp),%rax
 +	mov %rax,(%rsp)
