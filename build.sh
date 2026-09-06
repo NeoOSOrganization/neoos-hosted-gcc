@@ -1,5 +1,9 @@
 #!/bin/bash
 set -e
+set -o pipefail   # without this, `make | tee` always exits 0 (tee's own
+                   # status), so a failed make never stops this script --
+                   # the exact bug that let a broken build silently
+                   # proceed to `make install` last time.
 HERE=$(cd "$(dirname "$0")" && pwd)
 MCM_DIR="${MCM_DIR:-$HERE/mcm}"
 
