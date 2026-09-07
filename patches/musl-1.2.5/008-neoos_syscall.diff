@@ -1,6 +1,6 @@
 --- /dev/null	2026-09-06 20:51:09.261636664 +0330
-+++ b/src/internal/neoos_syscall.c	2026-09-06 15:08:25.153304211 +0330
-@@ -0,0 +1,364 @@
++++ b/src/internal/neoos_syscall.c	2026-09-07 10:03:20.578672145 +0330
+@@ -0,0 +1,389 @@
 +// NeoOS's musl syscall shim.
 +//
 +// TRANSLATION, NEVER EMULATION (see /CLAUDE.md). Everything here does
@@ -99,6 +99,13 @@
 +#define NEO_SETUID          80
 +#define NEO_SETGID          81
 +#define NEO_GETRANDOM       82
++#define NEO_SCHED_GETAFFINITY 93
++#define NEO_MEMBARRIER      94
++#define NEO_MLOCK           95
++#define NEO_SYSINFO         96
++#define NEO_STATFS          97
++#define NEO_GET_MEMPOLICY   98
++#define NEO_MADVISE         99
 +
 +// ---- Linux x86-64 numbers, as musl issues them ----------------------
 +#define LX_READ              0
@@ -180,6 +187,13 @@
 +#define LX_DUP              32
 +#define LX_DUP2             33
 +#define LX_DUP3            292
++#define LX_MLOCK           149
++#define LX_SCHED_GETAFFINITY 204
++#define LX_MEMBARRIER      324
++#define LX_SYSINFO          99
++#define LX_STATFS          137
++#define LX_GET_MEMPOLICY   239
++#define LX_MADVISE          28
 +
 +static long neo_strlen(const char *s) {
 +    long n = 0;
@@ -351,6 +365,17 @@
 +
 +    case LX_PIPE:            return neo(NEO_PIPE2, a1, 0, 0, 0, 0, 0);
 +    case LX_PIPE2:           return neo(NEO_PIPE2, a1, a2, 0, 0, 0, 0);
++
++    // Found missing via dotnet NativeAOT's CoreCLR startup -- see
++    // docs/stdlib.md for what each actually does on NeoOS.
++    case LX_SCHED_GETAFFINITY: return neo(NEO_SCHED_GETAFFINITY, a1, a2, a3, 0, 0, 0);
++    case LX_MEMBARRIER:        return neo(NEO_MEMBARRIER, a1, a2, 0, 0, 0, 0);
++    case LX_MLOCK:             return neo(NEO_MLOCK, a1, a2, 0, 0, 0, 0);
++    case LX_SYSINFO:           return neo(NEO_SYSINFO, a1, 0, 0, 0, 0, 0);
++    case LX_STATFS:
++        return neo(NEO_STATFS, a1, neo_strlen((const char *)a1), a2, 0, 0, 0);
++    case LX_GET_MEMPOLICY:     return neo(NEO_GET_MEMPOLICY, a1, a2, a3, a4, a5, 0);
++    case LX_MADVISE:           return neo(NEO_MADVISE, a1, a2, a3, 0, 0, 0);
 +
 +    default:
 +        // Not forwarded. This is the signal that a primitive belongs in
