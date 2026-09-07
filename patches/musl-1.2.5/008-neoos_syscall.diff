@@ -1,6 +1,6 @@
 --- /dev/null	2026-09-06 20:51:09.261636664 +0330
-+++ b/src/internal/neoos_syscall.c	2026-09-07 11:14:23.534633936 +0330
-@@ -0,0 +1,433 @@
++++ b/src/internal/neoos_syscall.c	2026-09-07 13:49:19.703574235 +0330
+@@ -0,0 +1,436 @@
 +// NeoOS's musl syscall shim.
 +//
 +// TRANSLATION, NEVER EMULATION (see /CLAUDE.md). Everything here does
@@ -120,6 +120,7 @@
 +// calling thread's OS-level id), so this reuses the existing syscall
 +// number rather than adding a new one for a second name on it.
 +#define NEO_THREAD_SELF          20
++#define NEO_MREMAP              109
 +
 +// ---- Linux x86-64 numbers, as musl issues them ----------------------
 +#define LX_READ              0
@@ -218,6 +219,7 @@
 +#define LX_INOTIFY_INIT1     294
 +#define LX_GETRUSAGE          98
 +#define LX_GETTID            186
++#define LX_MREMAP             25
 +
 +static long neo_strlen(const char *s) {
 +    long n = 0;
@@ -420,6 +422,7 @@
 +    // crash-trap right after -- a #GP (hlt is privileged), not the
 +    // SIGABRT abort() actually meant to raise. See docs/stdlib.md.
 +    case LX_GETTID:            return neo(NEO_THREAD_SELF, 0, 0, 0, 0, 0, 0);
++    case LX_MREMAP:            return neo(NEO_MREMAP, a1, a2, a3, a4, 0, 0);
 +
 +    default:
 +        // Not forwarded. This is the signal that a primitive belongs in
