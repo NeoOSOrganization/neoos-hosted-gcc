@@ -1,6 +1,6 @@
 --- /dev/null	2026-09-06 20:51:09.261636664 +0330
-+++ b/src/internal/neoos_syscall.c	2026-09-07 10:48:14.422972594 +0330
-@@ -0,0 +1,401 @@
++++ b/src/internal/neoos_syscall.c	2026-09-07 11:14:23.534633936 +0330
+@@ -0,0 +1,433 @@
 +// NeoOS's musl syscall shim.
 +//
 +// TRANSLATION, NEVER EMULATION (see /CLAUDE.md). Everything here does
@@ -110,6 +110,16 @@
 +#define NEO_EPOLL_CTL      101
 +#define NEO_EPOLL_WAIT     102
 +#define NEO_EPOLL_PWAIT    103
++#define NEO_READLINK       104
++#define NEO_INOTIFY_INIT1       105
++#define NEO_INOTIFY_ADD_WATCH   106
++#define NEO_INOTIFY_RM_WATCH    107
++#define NEO_GETRUSAGE           108
++// Matches kernel/syscall/syscall_nr.h's SYS_THREAD_SELF directly --
++// gettid() and NeoOS's own thread_self() are the same question (the
++// calling thread's OS-level id), so this reuses the existing syscall
++// number rather than adding a new one for a second name on it.
++#define NEO_THREAD_SELF          20
 +
 +// ---- Linux x86-64 numbers, as musl issues them ----------------------
 +#define LX_READ              0
@@ -202,6 +212,12 @@
 +#define LX_EPOLL_CTL       233
 +#define LX_EPOLL_PWAIT     281
 +#define LX_EPOLL_CREATE1   291
++#define LX_READLINK         89
++#define LX_INOTIFY_ADD_WATCH 254
++#define LX_INOTIFY_RM_WATCH  255
++#define LX_INOTIFY_INIT1     294
++#define LX_GETRUSAGE          98
++#define LX_GETTID            186
 +
 +static long neo_strlen(const char *s) {
 +    long n = 0;
@@ -388,6 +404,22 @@
 +    case LX_EPOLL_CTL:         return neo(NEO_EPOLL_CTL, a1, a2, a3, a4, 0, 0);
 +    case LX_EPOLL_WAIT:        return neo(NEO_EPOLL_WAIT, a1, a2, a3, a4, 0, 0);
 +    case LX_EPOLL_PWAIT:       return neo(NEO_EPOLL_PWAIT, a1, a2, a3, a4, a5, 0);
++    case LX_READLINK:
++        return neo(NEO_READLINK, a1, neo_strlen((const char *)a1), a2, a3, 0, 0);
++    case LX_INOTIFY_INIT1:     return neo(NEO_INOTIFY_INIT1, a1, 0, 0, 0, 0, 0);
++    case LX_INOTIFY_ADD_WATCH:
++        return neo(NEO_INOTIFY_ADD_WATCH, a1, a2, neo_strlen((const char *)a2), a3, 0, 0);
++    case LX_INOTIFY_RM_WATCH:  return neo(NEO_INOTIFY_RM_WATCH, a1, a2, 0, 0, 0, 0);
++    case LX_GETRUSAGE:         return neo(NEO_GETRUSAGE, a1, a2, 0, 0, 0, 0);
++    // gettid() -- found missing (silently: it never printed a [shim]
++    // ENOSYS line an earlier test run wouldn't have already glossed
++    // over) via abort()'s own raise(SIGABRT) -> tkill(gettid(), sig)
++    // path: a bogus tid made tkill fail silently instead of
++    // delivering the signal, so raise() returned instead of the
++    // process dying, and execution fell into musl's own deliberate
++    // crash-trap right after -- a #GP (hlt is privileged), not the
++    // SIGABRT abort() actually meant to raise. See docs/stdlib.md.
++    case LX_GETTID:            return neo(NEO_THREAD_SELF, 0, 0, 0, 0, 0, 0);
 +
 +    default:
 +        // Not forwarded. This is the signal that a primitive belongs in
