@@ -1,6 +1,6 @@
---- /dev/null	2026-09-06 20:51:09.261636664 +0330
-+++ b/src/internal/neoos_syscall.c	2026-09-07 13:49:19.703574235 +0330
-@@ -0,0 +1,436 @@
+--- /dev/null	2026-09-22 10:24:12.784976961 +0330
++++ b/src/internal/neoos_syscall.c	2026-09-23 00:46:43.168229520 +0330
+@@ -0,0 +1,554 @@
 +// NeoOS's musl syscall shim.
 +//
 +// TRANSLATION, NEVER EMULATION (see /CLAUDE.md). Everything here does
@@ -121,6 +121,35 @@
 +// number rather than adding a new one for a second name on it.
 +#define NEO_THREAD_SELF          20
 +#define NEO_MREMAP              109
++#define NEO_GETCPU               41
++#define NEO_NICE                110
++#define NEO_SETPRIORITY         111
++#define NEO_GETPRIORITY         112
++#define NEO_SCHED_SETSCHEDULER  113
++#define NEO_SCHED_GETSCHEDULER  114
++#define NEO_SCHED_SETPARAM      115
++#define NEO_SCHED_GETPARAM      116
++#define NEO_SCHED_GET_PRIORITY_MAX 117
++#define NEO_SCHED_GET_PRIORITY_MIN 118
++#define NEO_SCHED_RR_GET_INTERVAL  119
++#define NEO_SCHED_SETATTR       120
++#define NEO_SCHED_GETATTR       121
++#define NEO_SCHED_SETAFFINITY   122
++#define NEO_EVENTFD2            123
++#define NEO_PRCTL              124
++#define NEO_PPOLL              125
++#define NEO_CLOCK_NANOSLEEP    126
++#define NEO_CLOSE_RANGE        127
++#define NEO_STATX              128
++#define NEO_FSYNC              129
++#define NEO_FDATASYNC          130
++#define NEO_FALLOCATE          131
++#define NEO_FTRUNCATE          134
++#define NEO_MEMFD_CREATE       135
++#define NEO_PREAD              136
++#define NEO_CLOCK_GETRES       137
++#define NEO_ACCESS             132
++#define NEO_FACCESSAT          133
 +
 +// ---- Linux x86-64 numbers, as musl issues them ----------------------
 +#define LX_READ              0
@@ -220,6 +249,36 @@
 +#define LX_GETRUSAGE          98
 +#define LX_GETTID            186
 +#define LX_MREMAP             25
++#define LX_GETCPU           309
++#define LX_SETPRIORITY     141
++#define LX_GETPRIORITY     140
++#define LX_SCHED_SETPARAM  142
++#define LX_SCHED_GETPARAM  143
++#define LX_SCHED_SETSCHEDULER 144
++#define LX_SCHED_GETSCHEDULER 145
++#define LX_SCHED_GET_PRIORITY_MAX 146
++#define LX_SCHED_GET_PRIORITY_MIN 147
++#define LX_SCHED_RR_GET_INTERVAL  148
++#define LX_SCHED_SETAFFINITY 203
++#define LX_SCHED_SETATTR   314
++#define LX_SCHED_GETATTR   315
++#define LX_EVENTFD          284
++#define LX_EVENTFD2        290
++#define LX_PRCTL          157
++#define LX_PPOLL           271
++#define LX_CLOCK_NANOSLEEP 230
++#define LX_CLOSE_RANGE     436
++#define LX_STATX           332
++#define LX_FSYNC            74
++#define LX_FDATASYNC        75
++#define LX_FALLOCATE       285
++#define LX_FTRUNCATE        77
++#define LX_MEMFD_CREATE    319
++#define LX_PREAD64          17
++#define LX_CLOCK_GETRES    229
++#define LX_ACCESS           21
++#define LX_FACCESSAT       269
++#define LX_FACCESSAT2      439
 +
 +static long neo_strlen(const char *s) {
 +    long n = 0;
@@ -423,6 +482,65 @@
 +    // SIGABRT abort() actually meant to raise. See docs/stdlib.md.
 +    case LX_GETTID:            return neo(NEO_THREAD_SELF, 0, 0, 0, 0, 0, 0);
 +    case LX_MREMAP:            return neo(NEO_MREMAP, a1, a2, a3, a4, 0, 0);
++
++    // getcpu(cpu, node, tcache) -- Linux 309. musl's sched_getcpu()
++    // issues it directly; NeoOS's SYS_GETCPU only fills the first word,
++    // which is all sched_getcpu() reads. Kills the last routine
++    // [shim] ENOSYS from a NativeAOT / pthread workload.
++    case LX_GETCPU:            return neo(NEO_GETCPU, a1, a2, a3, 0, 0, 0);
++
++    // Scheduler ABI (SCH-1 Task 5). Straight renumbering -- the
++    // argument shapes (sched_param, sched_attr, cpu_set_t, the nice
++    // range) are Linux's on both sides. RT policies come back -EINVAL
++    // from the kernel until SCH-3/SCH-4. See docs/stdlib.md.
++    case LX_SETPRIORITY:      return neo(NEO_SETPRIORITY, a1, a2, a3, 0, 0, 0);
++    case LX_GETPRIORITY:      return neo(NEO_GETPRIORITY, a1, a2, 0, 0, 0, 0);
++    case LX_SCHED_SETSCHEDULER: return neo(NEO_SCHED_SETSCHEDULER, a1, a2, a3, 0, 0, 0);
++    case LX_SCHED_GETSCHEDULER: return neo(NEO_SCHED_GETSCHEDULER, a1, 0, 0, 0, 0, 0);
++    case LX_SCHED_SETPARAM:   return neo(NEO_SCHED_SETPARAM, a1, a2, 0, 0, 0, 0);
++    case LX_SCHED_GETPARAM:   return neo(NEO_SCHED_GETPARAM, a1, a2, 0, 0, 0, 0);
++    case LX_SCHED_GET_PRIORITY_MAX: return neo(NEO_SCHED_GET_PRIORITY_MAX, a1, 0, 0, 0, 0, 0);
++    case LX_SCHED_GET_PRIORITY_MIN: return neo(NEO_SCHED_GET_PRIORITY_MIN, a1, 0, 0, 0, 0, 0);
++    case LX_SCHED_RR_GET_INTERVAL:  return neo(NEO_SCHED_RR_GET_INTERVAL, a1, a2, 0, 0, 0, 0);
++    case LX_SCHED_SETATTR:   return neo(NEO_SCHED_SETATTR, a1, a2, a3, 0, 0, 0);
++    case LX_SCHED_GETATTR:   return neo(NEO_SCHED_GETATTR, a1, a2, a3, a4, 0, 0);
++    case LX_SCHED_SETAFFINITY: return neo(NEO_SCHED_SETAFFINITY, a1, a2, a3, 0, 0, 0);
++
++    // MSC-1. eventfd(initval) is eventfd2(initval, 0). prctl forwards
++    // unchanged -- the kernel accepts the no-op-safe options and
++    // -EINVALs the rest.
++    case LX_EVENTFD:          return neo(NEO_EVENTFD2, a1, 0, 0, 0, 0, 0);
++    case LX_EVENTFD2:         return neo(NEO_EVENTFD2, a1, a2, 0, 0, 0, 0);
++    case LX_PRCTL:            return neo(NEO_PRCTL, a1, a2, a3, a4, a5, 0);
++
++    // MSC-2. ppoll passes the sigmask size in arg5; clock_nanosleep and
++    // close_range are straight forwards.
++    case LX_PPOLL:            return neo(NEO_PPOLL, a1, a2, a3, a4, a5, 0);
++    case LX_CLOCK_NANOSLEEP:  return neo(NEO_CLOCK_NANOSLEEP, a1, a2, a3, a4, 0, 0);
++    case LX_CLOSE_RANGE:      return neo(NEO_CLOSE_RANGE, a1, a2, a3, 0, 0, 0);
++
++    // MSC-3. statx / access take a path -> measure it and shift the
++    // trailing args along (the systematic path reshape). fsync /
++    // fdatasync / fallocate are straight forwards.
++    case LX_STATX:
++        // (dfd, path, flags, mask, buf) -> (dfd, ptr, len, flags, mask, buf)
++        return neo(NEO_STATX, a1, a2, neo_strlen((const char *)a2), a3, a4, a5);
++    case LX_FSYNC:            return neo(NEO_FSYNC, a1, 0, 0, 0, 0, 0);
++    case LX_FDATASYNC:        return neo(NEO_FDATASYNC, a1, 0, 0, 0, 0, 0);
++    case LX_FALLOCATE:        return neo(NEO_FALLOCATE, a1, a2, a3, a4, 0, 0);
++    case LX_FTRUNCATE:        return neo(NEO_FTRUNCATE, a1, a2, 0, 0, 0, 0);
++    case LX_PREAD64:          return neo(NEO_PREAD, a1, a2, a3, a4, 0, 0);
++    case LX_CLOCK_GETRES:     return neo(NEO_CLOCK_GETRES, a1, a2, 0, 0, 0, 0);
++    // memfd_create takes a NAME -> measure it and shift, the same
++    // systematic path reshape statx and access use.
++    case LX_MEMFD_CREATE:
++        return neo(NEO_MEMFD_CREATE, a1, neo_strlen((const char *)a1), a2, 0, 0, 0);
++    case LX_ACCESS:
++        return neo(NEO_ACCESS, a1, neo_strlen((const char *)a1), a2, 0, 0, 0);
++    case LX_FACCESSAT:
++        return neo(NEO_FACCESSAT, a1, a2, neo_strlen((const char *)a2), a3, 0, 0);
++    case LX_FACCESSAT2:
++        return neo(NEO_FACCESSAT, a1, a2, neo_strlen((const char *)a2), a3, a4, 0);
 +
 +    default:
 +        // Not forwarded. This is the signal that a primitive belongs in
